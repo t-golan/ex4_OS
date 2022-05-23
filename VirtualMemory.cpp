@@ -70,7 +70,6 @@ uint64_t findFrameToEvict(uint64_t* pageSwappedIn);
  */
 uint64_t searchForthePageFrame(uint64_t virtualAddress, int* entriesList);
 
-
 bool frameIsEmpty(uint64_t frameIndex){
     word_t value = 0;
 
@@ -151,7 +150,7 @@ void entriesListCreator(uint64_t virtualAddress, int* listOfEntries){
     }
     for(int i=0; i < TABLES_DEPTH + 1; i++){
         listOfEntries[i] = virtualAddress >> (VIRTUAL_ADDRESS_WIDTH - (headOfSet + i * OFFSET_WIDTH));
-        virtualAddress = (virtualAddress << (headOfSet + i * OFFSET_WIDTH)) & ((2 << VIRTUAL_ADDRESS_WIDTH) - 1);
+        virtualAddress = (virtualAddress << (headOfSet + i * OFFSET_WIDTH)) & ((1 << VIRTUAL_ADDRESS_WIDTH) - 1);
         virtualAddress = virtualAddress >> (headOfSet + i * OFFSET_WIDTH);
     }
 }
