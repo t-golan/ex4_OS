@@ -5,7 +5,7 @@
 #include "VirtualMemory.h"
 #include "PhysicalMemory.h"
 #include <cstdlib>
-#include <algorithm>
+
 using namespace std;
 
 /**
@@ -54,7 +54,7 @@ void extractPageNumber(uint64_t virtualAddress, uint64_t* pageNumber){
  * clears a given frame
  * @param frameIndex
  */
-void clearFrame(uint64_t frameIndex)
+void clearFrame(uint64_t frameIndex);
 
 /**
  *
@@ -84,9 +84,7 @@ bool frameIsEmpty(uint64_t frameIndex){
 }
 
 void dfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
-         uint64_t* maxFrameIndex, uint64_t* maxDistanceFrame, int* maxDistance,
-         uint64_t* pageNumber,
-         int depth){
+         uint64_t* maxFrameIndex, int depth){
 
     if(depth > TABLES_DEPTH){
         return;
@@ -95,8 +93,7 @@ void dfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
         *emptyFrameIndex = frameIndex;
         return;
     }
-    iterateFrameWithDfs(frameIndex, emptyFrameIndex,
-                        maxFrameIndex, depth);
+    iterateFrameWithDfs(frameIndex, emptyFrameIndex, maxFrameIndex, depth);
 }
 
 
@@ -132,8 +129,7 @@ uint64_t findUnusedFrame(){
     int maxDistance = 0;
     int depth = 1;
 
-    dfs(headFrame, &emptyFrameIndex, &maxFrameIndex,
-            &maxDistanceFrame, &maxDistance, &pageNumber, depth);
+    dfs(headFrame, &emptyFrameIndex, &maxFrameIndex, depth);
     if(emptyFrameIndex != 0){
         return emptyFrameIndex;
     }
@@ -167,21 +163,19 @@ uint64_t searchForthePageFrame(uint64_t virtualAddress, int* entriesList){
     uint64_t pageNumber = 0;
     extractPageNumber(virtualAddress, &pageNumber);
 
-    int d = 1;
+    int d = 0;
     word_t frameIndex = 0;
 
-    while(d <= TABLES_DEPTH){
-        if(d <= TABLES_DEPTH) {
-            PMread(PAGE_SIZE * frameIndex + entriesList[d], &frameIndex);
-            if (frameIndex == 0) {
-                uint64_t newFrameIndex = findUnusedFrame();
-                if (newFrameIndex == 0) {
-                    newFrameIndex = findFrameToEvict(&pageNumber);
-                }
-                clearFrame(newFrameIndex);
-                PMwrite(PAGE_SIZE * frameIndex + entriesList[d], (word_t)newFrameIndex);
-                frameIndex = (word_t)newFrameIndex;
+    while(d < TABLES_DEPTH){
+        PMread(PAGE_SIZE * frameIndex + entriesList[d], &frameIndex);
+        if (frameIndex == 0) {
+            uint64_t newFrameIndex = findUnusedFrame();
+            if (newFrameIndex == 0) {
+                newFrameIndex = findFrameToEvict(&pageNumber);
             }
+            clearFrame(newFrameIndex);
+            PMwrite(PAGE_SIZE * frameIndex + entriesList[d], (word_t)newFrameIndex);
+            frameIndex = (word_t)newFrameIndex;
         }
         d++;
     }
@@ -196,12 +190,13 @@ int VMread(uint64_t virtualAddress, word_t* value){
     int entriesInPageTables[TABLES_DEPTH + 1];
     entriesListCreator(virtualAddress, entriesInPageTables);
     uint64_t frameIndex = searchForthePageFrame(virtualAddress, entriesInPageTables);
-    PMread(PAGE_SIZE*frameIndex + entriesInPageTables[TABLES_DEPTH + 1], value);
+    PMread(PAGE_SIZE*frameIndex + entriesInPageTables[TABLES_DEPTH], value);
+
 }
 
 int VMwrite(uint64_t virtualAddress, word_t value){
     int entriesInPageTables[TABLES_DEPTH + 1];
     entriesListCreator(virtualAddress, entriesInPageTables);
     uint64_t frameIndex = searchForthePageFrame(virtualAddress, entriesInPageTables);
-    PMwrite(PAGE_SIZE*frameIndex + entriesInPageTables[TABLES_DEPTH + 1], value);
+    PMwrite(PAGE_SIZE*frameIndex + entriesInPageTables[TABLES_DEPTH], value);
 }
