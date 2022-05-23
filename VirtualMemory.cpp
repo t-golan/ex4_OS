@@ -180,6 +180,9 @@ uint64_t searchForthePageFrame(uint64_t virtualAddress, int* entriesList){
             PMwrite(PAGE_SIZE * frameIndex + entriesList[d], (word_t)newFrameIndex);
             frameIndex = (word_t)newFrameIndex;
         }
+        else{
+            frameIndex = value;
+        }
         d++;
     }
     return (uint64_t)frameIndex;
