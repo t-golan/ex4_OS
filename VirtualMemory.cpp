@@ -40,12 +40,35 @@ void iterateFrameWithDfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
  */
 uint64_t findUnusedFrame();
 
+/***
+ * read the virtual Address and creates a list of the entry in each of the page tables
+ * in the tree
+ */
+void entriesListCreator(uint64_t virtualAddress, int* listOfEntries);
+
+void extractPageNumber(uint64_t virtualAddress, uint64_t* pageNumber){
+    *pageNumber = virtualAddress >> OFFSET_WIDTH;
+}
+
+/**
+ * clears a given frame
+ * @param frameIndex
+ */
+void clearFrame(uint64_t frameIndex)
+
 /**
  *
  * @param pageSwappedIn the page number that should be swapped in
  * @return the frame index of the page we want to evict
  */
 uint64_t findFrameToEvict(uint64_t* pageSwappedIn);
+
+/**
+ * find the index of the frame where the value in the given address is saved
+ * @param virtualAddress the address
+ * @param entriesList the entries in the tables that leads to the wanted frame
+ */
+uint64_t searchForthePageFrame(uint64_t virtualAddress, int* entriesList);
 
 
 bool frameIsEmpty(uint64_t frameIndex){
@@ -121,5 +144,64 @@ uint64_t findUnusedFrame(){
 }
 
 uint64_t findFrameToEvict(uint64_t* pageSwappedIn){
-    return 0;
+    exit(1);
+}
+
+void entriesListCreator(uint64_t virtualAddress, int* listOfEntries){
+
+    int headOfSet = VIRTUAL_ADDRESS_WIDTH % OFFSET_WIDTH;
+    for(int i=0; i < TABLES_DEPTH + 1; i++){
+        listOfEntries[i] = virtualAddress >> (VIRTUAL_ADDRESS_WIDTH - (headOfSet + i * OFFSET_WIDTH));
+        virtualAddress << (headOfSet + i * OFFSET_WIDTH);
+        virtualAddress >> (headOfSet + i * OFFSET_WIDTH);
+    }
+}
+
+void clearFrame(uint64_t frameIndex){
+    for(int i=0; i < PAGE_SIZE; i++){
+        PMwrite(frameIndex*PAGE_SIZE + i,  0);
+    }
+}
+
+uint64_t searchForthePageFrame(uint64_t virtualAddress, int* entriesList){
+    uint64_t pageNumber = 0;
+    extractPageNumber(virtualAddress, &pageNumber);
+
+    int d = 1;
+    word_t frameIndex = 0;
+
+    while(d <= TABLES_DEPTH){
+        if(d <= TABLES_DEPTH) {
+            PMread(PAGE_SIZE * frameIndex + entriesList[d], &frameIndex);
+            if (frameIndex == 0) {
+                uint64_t newFrameIndex = findUnusedFrame();
+                if (newFrameIndex == 0) {
+                    newFrameIndex = findFrameToEvict(&pageNumber);
+                }
+                clearFrame(newFrameIndex);
+                PMwrite(PAGE_SIZE * frameIndex + entriesList[d], (word_t)newFrameIndex);
+                frameIndex = (word_t)newFrameIndex;
+            }
+        }
+        d++;
+    }
+    return (uint64_t)frameIndex;
+}
+
+void VMinitialize(){
+    clearFrame(0);
+}
+
+int VMread(uint64_t virtualAddress, word_t* value){
+    int entriesInPageTables[TABLES_DEPTH + 1];
+    entriesListCreator(virtualAddress, entriesInPageTables);
+    uint64_t frameIndex = searchForthePageFrame(virtualAddress, entriesInPageTables);
+    PMread(PAGE_SIZE*frameIndex + entriesInPageTables[TABLES_DEPTH + 1], value);
+}
+
+int VMwrite(uint64_t virtualAddress, word_t value){
+    int entriesInPageTables[TABLES_DEPTH + 1];
+    entriesListCreator(virtualAddress, entriesInPageTables);
+    uint64_t frameIndex = searchForthePageFrame(virtualAddress, entriesInPageTables);
+    PMwrite(PAGE_SIZE*frameIndex + entriesInPageTables[TABLES_DEPTH + 1], value);
 }
