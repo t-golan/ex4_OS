@@ -38,7 +38,7 @@ void iterateFrameWithDfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
  * if none of the frame is empty return 0
  * @return an empty frame index - if no frame is empty return 0
  */
-uint64_t findUnusedFrame();
+uint64_t findUnusedFrame(uint64_t frameIndex);
 
 /***
  * read the virtual Address and creates a list of the entry in each of the page tables
@@ -119,7 +119,7 @@ void iterateFrameWithDfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
     }
 }
 
-uint64_t findUnusedFrame(){
+uint64_t findUnusedFrame(uint64_t frameIndex){
     uint64_t headFrame = 0;
     uint64_t emptyFrameIndex = 0;
     uint64_t maxFrameIndex = 0;
@@ -130,7 +130,7 @@ uint64_t findUnusedFrame(){
     int depth = 1;
 
     dfs(headFrame, &emptyFrameIndex, &maxFrameIndex, depth);
-    if(emptyFrameIndex != 0){
+    if(emptyFrameIndex != 0 && emptyFrameIndex != frameIndex){
         return emptyFrameIndex;
     }
     if(maxFrameIndex + 1 < NUM_FRAMES){
@@ -169,7 +169,7 @@ uint64_t searchForthePageFrame(uint64_t virtualAddress, int* entriesList){
     while(d < TABLES_DEPTH){
         PMread(PAGE_SIZE * frameIndex + entriesList[d], &frameIndex);
         if (frameIndex == 0) {
-            uint64_t newFrameIndex = findUnusedFrame();
+            uint64_t newFrameIndex = findUnusedFrame(frameIndex);
             if (newFrameIndex == 0) {
                 newFrameIndex = findFrameToEvict(&pageNumber);
             }
