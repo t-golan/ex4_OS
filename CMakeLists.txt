@@ -3,4 +3,4 @@ project(ex4_OS)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_executable(ex4_OS main.cpp)
+add_executable(ex4_OS main.cpp VirtualMemory.cpp)
