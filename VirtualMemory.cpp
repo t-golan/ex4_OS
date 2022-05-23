@@ -146,10 +146,13 @@ uint64_t findFrameToEvict(uint64_t* pageSwappedIn){
 void entriesListCreator(uint64_t virtualAddress, int* listOfEntries){
 
     int headOfSet = VIRTUAL_ADDRESS_WIDTH % OFFSET_WIDTH;
+    if(headOfSet == 0){
+        headOfSet = OFFSET_WIDTH;
+    }
     for(int i=0; i < TABLES_DEPTH + 1; i++){
         listOfEntries[i] = virtualAddress >> (VIRTUAL_ADDRESS_WIDTH - (headOfSet + i * OFFSET_WIDTH));
-        virtualAddress << (headOfSet + i * OFFSET_WIDTH);
-        virtualAddress >> (headOfSet + i * OFFSET_WIDTH);
+        virtualAddress = virtualAddress << (headOfSet + i * OFFSET_WIDTH) % 2 << VIRTUAL_ADDRESS_WIDTH;
+        virtualAddress = virtualAddress >> (headOfSet + i * OFFSET_WIDTH);
     }
 }
 
@@ -165,10 +168,11 @@ uint64_t searchForthePageFrame(uint64_t virtualAddress, int* entriesList){
 
     int d = 0;
     word_t frameIndex = 0;
+    word_t value;
 
     while(d < TABLES_DEPTH){
-        PMread(PAGE_SIZE * frameIndex + entriesList[d], &frameIndex);
-        if (frameIndex == 0) {
+        PMread(PAGE_SIZE * frameIndex + entriesList[d], &value);
+        if (value == 0) {
             uint64_t newFrameIndex = findUnusedFrame(frameIndex);
             if (newFrameIndex == 0) {
                 newFrameIndex = findFrameToEvict(&pageNumber);
