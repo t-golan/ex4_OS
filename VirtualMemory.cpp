@@ -99,7 +99,7 @@ void dfs(uint64_t originalFrameIndex, uint64_t frameIndex, uint64_t* emptyFrameI
             if (*maxFrameIndex < newFrameIndex){
                 *maxFrameIndex = newFrameIndex;
             }
-            if(frameIsEmpty(newFrameIndex) and newFrameIndex != originalFrameIndex){
+            if(frameIsEmpty(newFrameIndex) and newFrameIndex != originalFrameIndex and depth < TABLES_DEPTH){
                 *emptyFrameIndex = newFrameIndex;
                 PMwrite(frameIndex * PAGE_SIZE + i, 0);
                 return;
