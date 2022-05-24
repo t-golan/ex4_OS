@@ -5,6 +5,7 @@
 #include "VirtualMemory.h"
 #include "PhysicalMemory.h"
 #include <cstdlib>
+#include <algorithm>
 
 using namespace std;
 
@@ -24,15 +25,17 @@ bool frameIsEmpty(uint64_t frameIndex);
  */
 void dfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
          uint64_t* maxFrameIndex, int depth);
-/**
-* a helper method to be used by the dfs algo
-* @param frameIndex the current frame (head of subtree)
-* @param emptyFrameIndex the index of an empty frame - if one exist
-* @param maxFrameIndex - the max index of frame pointed by all page tables
-* @param depth the depth of the recursive algo
- * */
-void iterateFrameWithDfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
-         uint64_t* maxFrameIndex, int depth);
+/***
+ * using dfs the method reaches every saved page in order to evict the frame
+ * which saves the page with the maximal cyclic distance
+ * @param frameIndex the current frame index
+ * @param swappedInPage the number of the page we want to swapp in
+ * @param pageNumber the number of the current page
+ * @param bestFrame the index of the frame which saves the page with the max distance
+ * @param maxDistance the maximal distance
+ */
+void dfs2(uint64_t frameIndex, uint64_t swappedInPage, uint64_t pageNumber, uint64_t* bestPageNumber,
+          uint64_t* bestFrame, uint64_t* maxDistance, int depth);
 /**
  * find an empty frame either by finding the max index of all frames or by finding an empty frame
  * if none of the frame is empty return 0
@@ -61,7 +64,7 @@ void clearFrame(uint64_t frameIndex);
  * @param pageSwappedIn the page number that should be swapped in
  * @return the frame index of the page we want to evict
  */
-uint64_t findFrameToEvict(uint64_t* pageSwappedIn);
+uint64_t findFrameAndEvict(uint64_t* pageSwappedIn);
 
 /**
  * find the index of the frame where the value in the given address is saved
@@ -92,18 +95,8 @@ void dfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
         *emptyFrameIndex = frameIndex;
         return;
     }
-    iterateFrameWithDfs(frameIndex, emptyFrameIndex, maxFrameIndex, depth);
-}
-
-
-void iterateFrameWithDfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
-                         uint64_t* maxFrameIndex, int depth){
     word_t value = 0;
-    int offset = OFFSET_WIDTH;
 
-    if(depth == 1){
-        offset = VIRTUAL_ADDRESS_WIDTH % OFFSET_WIDTH;
-    }
 
     for(uint64_t  i = 0; i < PAGE_SIZE; i++){
         PMread(frameIndex * PAGE_SIZE + i, &value);
@@ -116,16 +109,41 @@ void iterateFrameWithDfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
                 maxFrameIndex, depth + 1);
         }
     }
+
+}
+
+void dfs2(uint64_t frameIndex, uint64_t swappedInPage, uint64_t pageNumber, uint64_t* bestPageNumber,
+          uint64_t* bestFrame, uint64_t* maxDistance, int depth){
+
+    if(depth > TABLES_DEPTH){
+        // there can be problems here with the conversion to int I guess
+        int distance = min((int)NUM_PAGES - abs((int)swappedInPage - (int)pageNumber),
+                           abs((int)swappedInPage - (int)pageNumber));
+        if(*maxDistance < distance){
+            *maxDistance = distance;
+            *bestFrame = frameIndex;
+            *bestPageNumber = pageNumber;
+        }
+        return;
+    }
+
+    word_t value = 0;
+    for(uint64_t  i = 0; i < PAGE_SIZE; i++){
+        PMread(frameIndex * PAGE_SIZE + i, &value);
+        uint64_t newFrameIndex = value;
+        if (newFrameIndex != 0) {
+            uint64_t newPageNumber = (pageNumber << OFFSET_WIDTH) + i;
+            dfs2(newFrameIndex, swappedInPage, newPageNumber,
+                 bestPageNumber, bestFrame, maxDistance, depth+1);
+        }
+    }
 }
 
 uint64_t findUnusedFrame(uint64_t frameIndex){
     uint64_t headFrame = 0;
     uint64_t emptyFrameIndex = 0;
     uint64_t maxFrameIndex = 0;
-    uint64_t  maxDistanceFrame = 0;
-    uint64_t pageNumber = 0;
 
-    int maxDistance = 0;
     int depth = 1;
 
     dfs(headFrame, &emptyFrameIndex, &maxFrameIndex, depth);
@@ -138,8 +156,20 @@ uint64_t findUnusedFrame(uint64_t frameIndex){
     return 0;
 }
 
-uint64_t findFrameToEvict(uint64_t* pageSwappedIn){
-    exit(1);
+uint64_t findFrameAndEvict(uint64_t* pageSwappedIn){
+
+    uint64_t headFrame = 0;
+    uint64_t  maxDistanceFrame = 0;
+    uint64_t pageNumber = 0;
+    uint64_t bestPageNumber = 0;
+    uint64_t maxDistance = 0;
+
+    dfs2(headFrame, *pageSwappedIn, pageNumber, &bestPageNumber,
+         &maxDistanceFrame, &maxDistance, 1);
+
+    PMevict(maxDistanceFrame, bestPageNumber);
+    return maxDistanceFrame;
+
 }
 
 void entriesListCreator(uint64_t virtualAddress, int* listOfEntries){
@@ -174,7 +204,8 @@ uint64_t searchForthePageFrame(uint64_t virtualAddress, int* entriesList){
         if (value == 0) {
             uint64_t newFrameIndex = findUnusedFrame(frameIndex);
             if (newFrameIndex == 0) {
-                newFrameIndex = findFrameToEvict(&pageNumber);
+                newFrameIndex = findFrameAndEvict(&pageNumber);
+
             }
             clearFrame(newFrameIndex);
             PMwrite(PAGE_SIZE * frameIndex + entriesList[d], (word_t)newFrameIndex);
