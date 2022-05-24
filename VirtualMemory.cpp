@@ -91,17 +91,18 @@ void dfs(uint64_t originalFrameIndex, uint64_t frameIndex, uint64_t* emptyFrameI
     if(depth > TABLES_DEPTH){
         return;
     }
-    if(frameIsEmpty(frameIndex) and frameIndex != originalFrameIndex){
-        *emptyFrameIndex = frameIndex;
-        return;
-    }
     word_t value = 0;
-
-
     for(uint64_t  i = 0; i < PAGE_SIZE; i++){
         PMread(frameIndex * PAGE_SIZE + i, &value);
         uint64_t newFrameIndex = value;
         if (newFrameIndex != 0) {
+
+            if(frameIsEmpty(newFrameIndex) and newFrameIndex != originalFrameIndex){
+                *emptyFrameIndex = newFrameIndex;
+                PMwrite(frameIndex * PAGE_SIZE + i, 0);
+                return;
+            }
+
             if (*maxFrameIndex < newFrameIndex){
                 *maxFrameIndex = newFrameIndex;
             }
@@ -209,7 +210,6 @@ uint64_t searchForthePageFrame(uint64_t virtualAddress, int* entriesList){
             uint64_t newFrameIndex = findUnusedFrame(frameIndex);
             if (newFrameIndex == 0) {
                 newFrameIndex = findFrameAndEvict(&pageNumber);
-
             }
             clearFrame(newFrameIndex);
             PMwrite(PAGE_SIZE * frameIndex + entriesList[d], (word_t)newFrameIndex);
