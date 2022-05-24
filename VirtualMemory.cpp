@@ -23,7 +23,7 @@ bool frameIsEmpty(uint64_t frameIndex);
  * @param maxFrameIndex - the max index of frame pointed by all page tables
  * @param depth the depth of the recursive algo
  */
-void dfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
+void dfs(uint64_t originalFrameIndex, uint64_t frameIndex, uint64_t* emptyFrameIndex,
          uint64_t* maxFrameIndex, int depth);
 /***
  * using dfs the method reaches every saved page in order to evict the frame
@@ -35,7 +35,7 @@ void dfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
  * @param maxDistance the maximal distance
  */
 void dfs2(uint64_t frameIndex, uint64_t swappedInPage, uint64_t pageNumber, uint64_t* bestPageNumber,
-          uint64_t* bestFrame, uint64_t* maxDistance, int depth);
+          uint64_t* bestFrame, uint64_t* maxDistance, uint64_t* adrop, uint64_t address, int depth);
 /**
  * find an empty frame either by finding the max index of all frames or by finding an empty frame
  * if none of the frame is empty return 0
@@ -85,13 +85,13 @@ bool frameIsEmpty(uint64_t frameIndex){
     return true;
 }
 
-void dfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
+void dfs(uint64_t originalFrameIndex, uint64_t frameIndex, uint64_t* emptyFrameIndex,
          uint64_t* maxFrameIndex, int depth){
 
     if(depth > TABLES_DEPTH){
         return;
     }
-    if(frameIsEmpty(frameIndex)){
+    if(frameIsEmpty(frameIndex) and frameIndex != originalFrameIndex){
         *emptyFrameIndex = frameIndex;
         return;
     }
@@ -105,7 +105,7 @@ void dfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
             if (*maxFrameIndex < newFrameIndex){
                 *maxFrameIndex = newFrameIndex;
             }
-            dfs(newFrameIndex, emptyFrameIndex,
+            dfs(originalFrameIndex, newFrameIndex, emptyFrameIndex,
                 maxFrameIndex, depth + 1);
         }
     }
@@ -113,7 +113,7 @@ void dfs(uint64_t frameIndex, uint64_t* emptyFrameIndex,
 }
 
 void dfs2(uint64_t frameIndex, uint64_t swappedInPage, uint64_t pageNumber, uint64_t* bestPageNumber,
-          uint64_t* bestFrame, uint64_t* maxDistance, int depth){
+          uint64_t* bestFrame, uint64_t* maxDistance, uint64_t* adrop, uint64_t address, int depth){
 
     if(depth > TABLES_DEPTH){
         // there can be problems here with the conversion to int I guess
@@ -123,18 +123,20 @@ void dfs2(uint64_t frameIndex, uint64_t swappedInPage, uint64_t pageNumber, uint
             *maxDistance = distance;
             *bestFrame = frameIndex;
             *bestPageNumber = pageNumber;
+            *adrop = address;
         }
         return;
     }
 
     word_t value = 0;
     for(uint64_t  i = 0; i < PAGE_SIZE; i++){
-        PMread(frameIndex * PAGE_SIZE + i, &value);
+        address = frameIndex * PAGE_SIZE + i;
+        PMread(address, &value);
         uint64_t newFrameIndex = value;
         if (newFrameIndex != 0) {
             uint64_t newPageNumber = (pageNumber << OFFSET_WIDTH) + i;
             dfs2(newFrameIndex, swappedInPage, newPageNumber,
-                 bestPageNumber, bestFrame, maxDistance, depth+1);
+                 bestPageNumber, bestFrame, maxDistance, adrop, address, depth+1);
         }
     }
 }
@@ -146,7 +148,7 @@ uint64_t findUnusedFrame(uint64_t frameIndex){
 
     int depth = 1;
 
-    dfs(headFrame, &emptyFrameIndex, &maxFrameIndex, depth);
+    dfs(frameIndex, headFrame, &emptyFrameIndex, &maxFrameIndex, depth);
     if(emptyFrameIndex != 0 && emptyFrameIndex != frameIndex){
         return emptyFrameIndex;
     }
@@ -163,11 +165,13 @@ uint64_t findFrameAndEvict(uint64_t* pageSwappedIn){
     uint64_t pageNumber = 0;
     uint64_t bestPageNumber = 0;
     uint64_t maxDistance = 0;
+    uint64_t addressOfPointerToBestFrame = 0;
 
     dfs2(headFrame, *pageSwappedIn, pageNumber, &bestPageNumber,
-         &maxDistanceFrame, &maxDistance, 1);
+         &maxDistanceFrame, &maxDistance, &addressOfPointerToBestFrame, 0, 1);
 
     PMevict(maxDistanceFrame, bestPageNumber);
+    PMwrite(addressOfPointerToBestFrame, 0);
     return maxDistanceFrame;
 
 }
