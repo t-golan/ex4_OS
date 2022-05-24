@@ -229,15 +229,24 @@ void VMinitialize(){
 }
 
 int VMread(uint64_t virtualAddress, word_t* value){
+    if(virtualAddress >= VIRTUAL_MEMORY_SIZE){
+        return 0;
+    }
     int entriesInPageTables[TABLES_DEPTH + 1];
     entriesListCreator(virtualAddress, entriesInPageTables);
+    uint64_t pageNumber;
+    extractPageNumber(virtualAddress, &pageNumber);
     uint64_t frameIndex = searchForthePageFrame(virtualAddress, entriesInPageTables);
+    PMrestore(frameIndex, pageNumber);
     PMread(PAGE_SIZE*frameIndex + entriesInPageTables[TABLES_DEPTH], value);
     return 1;
 
 }
 
 int VMwrite(uint64_t virtualAddress, word_t value){
+    if(virtualAddress >= VIRTUAL_MEMORY_SIZE){
+        return 0;
+    }
     int entriesInPageTables[TABLES_DEPTH + 1];
     uint64_t pageNumber;
     extractPageNumber(virtualAddress, &pageNumber);
