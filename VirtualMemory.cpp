@@ -241,6 +241,7 @@ int VMread(uint64_t virtualAddress, word_t* value){
     PMread(PAGE_SIZE*frameIndex + entriesInPageTables[TABLES_DEPTH], value);
     return 1;
 
+
 }
 
 int VMwrite(uint64_t virtualAddress, word_t value){
