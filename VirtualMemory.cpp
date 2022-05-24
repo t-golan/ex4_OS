@@ -209,7 +209,9 @@ uint64_t searchForthePageFrame(uint64_t virtualAddress, int* entriesList){
             if (newFrameIndex == 0) {
                 newFrameIndex = findFrameAndEvict(&pageNumber);
             }
-            clearFrame(newFrameIndex);
+            if(d + 1 <  TABLES_DEPTH) {
+                clearFrame(newFrameIndex);
+            }
             PMwrite(PAGE_SIZE * frameIndex + entriesList[d], (word_t)newFrameIndex);
             frameIndex = (word_t)newFrameIndex;
         }
@@ -223,6 +225,7 @@ uint64_t searchForthePageFrame(uint64_t virtualAddress, int* entriesList){
 
 void VMinitialize(){
     clearFrame(0);
+
 }
 
 int VMread(uint64_t virtualAddress, word_t* value){
@@ -230,12 +233,17 @@ int VMread(uint64_t virtualAddress, word_t* value){
     entriesListCreator(virtualAddress, entriesInPageTables);
     uint64_t frameIndex = searchForthePageFrame(virtualAddress, entriesInPageTables);
     PMread(PAGE_SIZE*frameIndex + entriesInPageTables[TABLES_DEPTH], value);
+    return 1;
 
 }
 
 int VMwrite(uint64_t virtualAddress, word_t value){
     int entriesInPageTables[TABLES_DEPTH + 1];
+    uint64_t pageNumber;
+    extractPageNumber(virtualAddress, &pageNumber);
     entriesListCreator(virtualAddress, entriesInPageTables);
     uint64_t frameIndex = searchForthePageFrame(virtualAddress, entriesInPageTables);
+    PMrestore(frameIndex, pageNumber);
     PMwrite(PAGE_SIZE*frameIndex + entriesInPageTables[TABLES_DEPTH], value);
+    return 1;
 }
