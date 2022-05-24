@@ -96,15 +96,13 @@ void dfs(uint64_t originalFrameIndex, uint64_t frameIndex, uint64_t* emptyFrameI
         PMread(frameIndex * PAGE_SIZE + i, &value);
         uint64_t newFrameIndex = value;
         if (newFrameIndex != 0) {
-
+            if (*maxFrameIndex < newFrameIndex){
+                *maxFrameIndex = newFrameIndex;
+            }
             if(frameIsEmpty(newFrameIndex) and newFrameIndex != originalFrameIndex){
                 *emptyFrameIndex = newFrameIndex;
                 PMwrite(frameIndex * PAGE_SIZE + i, 0);
                 return;
-            }
-
-            if (*maxFrameIndex < newFrameIndex){
-                *maxFrameIndex = newFrameIndex;
             }
             dfs(originalFrameIndex, newFrameIndex, emptyFrameIndex,
                 maxFrameIndex, depth + 1);
